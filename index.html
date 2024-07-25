@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Novo Título</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        #colorPickerContainer {
+            display: flex;
+            flex-wrap: wrap;
+            width: 640px; /* 6 colors * 40px + 5 * 5px margin */
+        }
+        .color-box {
+            width: 40px;
+            height: 40px;
+            margin: 5px;
+            cursor: pointer;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px black;
+        }
+        .color-box.hidden-label {
+            color: transparent;
+            text-shadow: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Data e hora atuais: {{ current_time }}</h1>
+    <form action="{{ url_for('reset') }}" method="post">
+        <label for="name">Nome:</label>
+        <input type="text" id="name" name="name"><br><br>
+        <label for="dob">Data de Nascimento:</label>
+        <input type="date" id="dob" name="dob"><br><br>
+        <label for="sex">Sexo:</label>
+        <input type="text" id="sex" name="sex"><br><br>
+        <button type="submit">Resetar</button>
+    </form>
+    <br>
+    <label for="showLabels">Mostrar Abreviações e Sombreamento:</label>
+    <input type="checkbox" id="showLabels" name="showLabels">
+    <br><br>
+    <div id="colorPickerContainer">
+        <!-- Adicionando os seletores de cor -->
+    </div>
+    <canvas id="pyramidCanvas" width="800" height="400"></canvas>
+    <script>
+        const canvas = document.getElementById('pyramidCanvas');
+        const ctx = canvas.getContext('2d');
+        const colorPickerContainer = document.getElementById('colorPickerContainer');
+        const showLabelsCheckbox = document.getElementById('showLabels');
+        let selectedColor = '#ffffff';
+        let selectedLabel = '';
+
+        const colorMatrix = {
+            "blue": ["#A5E8FB", "#26A0AF", "#1787AF", "#13204D"],
+            "red": ["#FE7E97", "#CF1216", "#A40A0D", "#621E1F"],
+            "green": ["#D1E50A", "#9DDD25", "#278D18", "#242D1D"],
+            "purple": ["#DCB4E6", "#6B1839", "#683967"],
+            "orange": ["#EF662F", "#DC301B"],
+            "yellow": ["#FDFB20", "#FCB01A"],
+            "brown": ["#632B1B", "#3B1D13"],
+            "black": ["#000000"],
+            "white": ["#FFFFFF"],
+            "gray": ["#878C8F"]
+        };
+
+        const colorList = [];
+        for (const [color, shades] of Object.entries(colorMatrix)) {
+            shades.forEach((shade, index) => {
+                colorList.push({ label: `${color.slice(0, 2)}${index + 1}`, color: shade });
+            });
+        }
+
+        colorList.forEach(({ label, color }) => {
+            const colorDiv = document.createElement('div');
+            colorDiv.className = 'color-box';
+            colorDiv.style.backgroundColor = color;
+            colorDiv.title = label;
+            colorDiv.textContent = label;
+            colorDiv.addEventListener('click', () => {
+                selectedColor = color;
+                selectedLabel = label;
+            });
+            colorPickerContainer.appendChild(colorDiv);
+        });
+
+        const pyramid = [];
+        const labels = [];
+        const rows = 5;
+
+        function drawPyramid() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < rows - i; j++) {
+                    const x0 = (canvas.width / 2) - ((rows - i) * 30) + (j * 60);
+                    const y0 = canvas.height - (i + 1) * 60;
+                    const x1 = x0 + 60;
+                    const y1 = y0 + 60;
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(x0, y0, 60, 60);
+                    ctx.strokeRect(x0, y0, 60, 60);
+                    pyramid.push({ x0, y0, x1, y1, color: 'white' });
+                    labels.push({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, text: '', color: 'white' });
+                }
+            }
+        }
+
+        function fillSquare(x, y) {
+            for (let i = 0; i < pyramid.length; i++) {
+                const square = pyramid[i];
+                if (x > square.x0 && x < square.x1 && y > square.y0 && y < square.y1) {
+                    square.color = selectedColor;
+                    ctx.fillStyle = selectedColor;
+                    ctx.fillRect(square.x0, square.y0, 60, 60);
+                    ctx.strokeRect(square.x0, square.y0, 60, 60);
+                    labels[i].text = selectedLabel;
+                    labels[i].color = 'white';
+                    if (showLabelsCheckbox.checked) {
+                        ctx.fillStyle = 'white';
+                        ctx.font = '14px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.shadowColor = 'black';
+                        ctx.shadowBlur = 2;
+                        ctx.shadowOffsetX = 1;
+                        ctx.shadowOffsetY = 1;
+                        ctx.fillText(selectedLabel, labels[i].x, labels[i].y);
+                    }
+                    break;
+                }
+            }
+        }
+
+        canvas.addEventListener('click', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            fillSquare(x, y);
+        });
+
+        showLabelsCheckbox.addEventListener('change', () => {
+            const colorBoxes = document.querySelectorAll('.color-box');
+            colorBoxes.forEach(box => {
+                if (showLabelsCheckbox.checked) {
+                    box.classList.remove('hidden-label');
+                } else {
+                    box.classList.add('hidden-label');
+                }
+            });
+
+            pyramid.forEach((square, i) => {
+                ctx.fillStyle = square.color;
+                ctx.fillRect(square.x0, square.y0, 60, 60);
+                ctx.strokeRect(square.x0, square.y0, 60, 60);
+                if (showLabelsCheckbox.checked && labels[i].text) {
+                    ctx.fillStyle = 'white';
+                    ctx.font = '14px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.shadowColor = 'black';
+                    ctx.shadowBlur = 2;
+                    ctx.shadowOffsetX = 1;
+                    ctx.shadowOffsetY = 1;
+                    ctx.fillText(labels[i].text, labels[i].x, labels[i].y);
+                }
+            });
+        });
+
+        drawPyramid();
+    </script>
+</body>
+</html>
